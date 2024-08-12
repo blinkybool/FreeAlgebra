@@ -25,18 +25,16 @@ Require Import UniMath.CategoryTheory.Subcategory.Reflective.
 
 Local Open Scope cat.
 
+(*
+To rewrite x to x' in x · y = z, use
+rw_left_comp h.
+where h has conclusion x = x'.
+*)
 Tactic Notation "rw_left_comp" constr(e) :=
   apply (transportb (λ x, x · _ = _) ltac:(apply e)).
-Tactic Notation "rw_left_comp'" constr(e) :=
-  apply (transportf (λ x, x · _ = _) ltac:(apply e)).
+(* Similarly `rw_right_comp h` uses h to rewrite x to x' in y · x = z *)
 Tactic Notation "rw_right_comp" constr(e) :=
   apply (transportb (λ x, _ · x = _) ltac:(apply e)).
-Tactic Notation "rw_right_comp'" constr(e) :=
-  apply (transportf (λ x, _ · x = _) ltac:(apply e)).
-Tactic Notation "rw_left" constr(e) :=
-  eapply pathscomp0; [apply e|].
-Tactic Notation "rw_left'" constr(e) :=
-  apply (pathscomp0 ltac:(apply pathsinv0; apply e)).
 
 (*||*)
 
@@ -119,19 +117,14 @@ Defined.
 
 End Algebra_def.
 
-(*|
-A pointed endofunctor F comes with a natural transformation 1 ⟹ F
-|*)
+(* A pointed endofunctor F comes with a natural transformation 1 ⟹ F *)
 Definition pointed_endofunctor (C : category) : UU := ∑ F : C ⟶ C, functor_identity C ⟹ F.
 
 #[reversible=no] Coercion pointed_endofunctor_endofunctor {C : category} (X : pointed_endofunctor C) : C ⟶ C := pr1 X.
 
 Definition make_pointed_endofunctor {C : category} (F : C ⟶ C) (σ : functor_identity C ⟹ F) : pointed_endofunctor C := tpair _ F σ.
 
-(*| 
-The *point* of a pointed endofunctor.
-Usually set σ := point F
-|*)
+(* The *point* of a pointed endofunctor *)
 Definition point {C : category} (F : pointed_endofunctor C) : functor_identity C ⟹ F := pr2 F.
 
 Definition point_naturality {C : category} (F : pointed_endofunctor C) {x y : C} (f : x --> y)
@@ -143,7 +136,6 @@ Defined.
 (*| 
   A well-pointed functor satisfies Fσ = σF, i.e. for every c : C, the two
   ways of constructing a morphism F c --> F (F c) coincide.
-  Can be seen as a way to simplify the component of σ at (F c).
 |*)
 Definition well_pointed {C : category} (F : pointed_endofunctor C) :=
   let σ := point F
@@ -415,9 +407,8 @@ Proof.
   use make_cocone.
   - intros i. exact ((colimIn (F^ω A)) (S i)).
   - simpl. intros i _ []; simpl.
-    rewrite <- (colimInCommutes (F^ω A) (S i) (S (S i)) (idpath _)).
+    rewrite <- (colimInCommutes (F^ω A) (S i) (S (S i)) (idpath _)); simpl.
     apply cancel_postcomposition.
-    simpl.
     apply pathsinv0, well_pointed_endofunctor_ax.
 Defined.
 
@@ -456,7 +447,7 @@ Proof.
   rewrite point_naturality.
   rewrite <- assoc.
   rewrite transfinite_structure_map_restricts'.
-  apply (colimInCommutes (F^ω A) i (1+i) (idpath _)).
+  exact (colimInCommutes (F^ω A) i (1+i) (idpath _)).
 Defined.
 
 (*|
@@ -472,15 +463,15 @@ Definition transfinite_pointed_algebra (A : C) : pointed_algebra F
   The free functor action on morphisms, given by the canonical map between the colimits
   NOTE: this is the underlying morphism in C, not in the category of algebras
   |*)
-Definition free_pointed_algebra_mor {A B : C} (f : A --> B)
+Definition free_pointed_algebra_map {A B : C} (f : A --> B)
   : C ⟦ transfinite_pointed_algebra A, transfinite_pointed_algebra B ⟧.
 Proof.
   apply colimOfArrows with (λ i, # (iter_functor F i) f).
   intros i _ []; simpl; apply pathsinv0; apply point_naturality.
 Defined.
 
-Lemma free_pointed_algebra_mor_restricts {A B : C} (f : A --> B) (i : nat)
-  : colimIn (F^ω A) i · free_pointed_algebra_mor f
+Lemma free_pointed_algebra_map_restricts {A B : C} (f : A --> B) (i : nat)
+  : colimIn (F^ω A) i · free_pointed_algebra_map f
     = # (iter_functor F i) f · colimIn (F^ω B) i.
 Proof.
   apply colimArrowCommutes.
@@ -489,23 +480,23 @@ Defined.
 (*
   The data of the free functor C --> pointed_algebra_category F, i.e.
   - it's action on objects (transfinite_pointed_algebra)
-  - it's action on morphisms (free_pointed_algebra_mor + compatibility with structure maps)
+  - it's action on morphisms (free_pointed_algebra_map + compatibility with structure maps)
 *)
 Definition free_pointed_algebra_data : functor_data C (pointed_algebra_category F).
 Proof.
   exists transfinite_pointed_algebra.
   intros A B f.
-  (* set (f' := free_pointed_algebra_mor f). *)
-  exists (free_pointed_algebra_mor f).
+  (* set (f' := free_pointed_algebra_map f). *)
+  exists (free_pointed_algebra_map f).
 
   apply (colim_mor_eq (FF^ω A)); simpl.
   intros i.
   rewrite assoc, assoc.
   rw_left_comp transfinite_structure_map_restricts.
-  rw_left (free_pointed_algebra_mor_restricts f (S i)).
+  refine (free_pointed_algebra_map_restricts f (S i) @ _).
   change (colimIn (FF^ω A) i) with (# F (colimIn (F^ω A) i)).
   rewrite <- functor_comp.
-  apply (transportb (λ x, _ = # F x · _) (free_pointed_algebra_mor_restricts f i)).
+  apply (transportb (λ x, _ = # F x · _) (free_pointed_algebra_map_restricts f i)).
   simpl.
   rewrite functor_comp. rewrite <- assoc.
   apply cancel_precomposition.
@@ -519,13 +510,13 @@ Proof.
   split.
   + intros A. apply algebra_mor_eq. simpl.
     apply pathsinv0, colim_endo_is_identity. intros i.
-    refine (free_pointed_algebra_mor_restricts _ _ @ _).
+    refine (free_pointed_algebra_map_restricts _ _ @ _).
     rewrite functor_id.
     apply id_left.
   + red. intros X Y Z f g. apply algebra_mor_eq; simpl.
     refine (_ @ ! precompWithColimOfArrows _ _ _ _ _ _ _ _).
     apply colimArrowUnique; simpl. intros i.
-    refine (free_pointed_algebra_mor_restricts (f · g) i @ _).
+    refine (free_pointed_algebra_map_restricts (f · g) i @ _).
     rewrite assoc. apply cancel_postcomposition.
     apply functor_comp.
 Defined.
@@ -537,7 +528,7 @@ Proof.
   use make_nat_trans; red; simpl.
   - exact (λ A, colimIn (F^ω A) 0).
   - intros A B f; simpl.
-    refine (_ @ ! free_pointed_algebra_mor_restricts f 0).
+    refine (_ @ ! free_pointed_algebra_map_restricts f 0).
     apply idpath.
 Defined.
 
@@ -554,7 +545,7 @@ Proof.
   red; intros i _ []; simpl.
   set (ɛ := counit_FF_cocone_arrows X).
   rewrite assoc.
-  rw_left_comp' (point_naturality F (ɛ i)).
+  rw_left_comp (! point_naturality F (ɛ i)).
   rewrite <- assoc.
   rw_right_comp (pointed_algebra_ax X).
   apply id_right.
@@ -584,7 +575,7 @@ Proof.
   intros i.
   rewrite assoc, assoc.
   rewrite transfinite_structure_map_restricts.
-  rw_left (counit_FF_map_restricts X (S i)); simpl.
+  refine (counit_FF_map_restricts X (S i) @ _); simpl.
   apply cancel_postcomposition.
   change (colimIn (FF^ω X) i) with (# F (colimIn (F^ω X) i)).
   rewrite <- functor_comp.
@@ -599,22 +590,21 @@ Proof.
   intros X Y f. apply algebra_mor_eq; simpl in *.
   refine (precompWithColimOfArrows _ _ _ _ _ _ _ _ @ _).
   apply colim_mor_eq; intros i; simpl.
-  rw_left (colimArrowCommutes (F^ω X)); simpl.
+  refine (colimArrowCommutes (F^ω X) _ _ _ @ _); simpl.
   
   apply pathsinv0.
   rewrite assoc.
   rw_left_comp counit_FF_map_restricts.
   set (ɛ := counit_FF_cocone_arrows).
 
-  induction i; simpl.
-  + rewrite id_left, id_right. apply idpath.
-  + rewrite assoc. rewrite <- functor_comp.
-    rewrite <- IHi.
-    rewrite <- assoc.
-    rewrite functor_comp.
-    rewrite <- (assoc _ _ (algebra_map Y)).
-    apply cancel_precomposition.
-    apply algebra_mor_commutes.
+  induction i; simpl. { rewrite id_left, id_right. apply idpath. }
+  rewrite assoc. rewrite <- functor_comp.
+  rewrite <- IHi.
+  rewrite <- assoc.
+  rewrite functor_comp.
+  rewrite <- (assoc _ _ (algebra_map Y)).
+  apply cancel_precomposition.
+  apply algebra_mor_commutes.
 Defined.
 
 (*| The adjunction witnessing that the free pointed-algebra functor is indeed free |*)
@@ -630,7 +620,7 @@ Proof.
     + red. intro A. apply algebra_mor_eq, pathsinv0; simpl.
       apply colim_endo_is_identity. intros i.
       rewrite assoc.
-      rw_left_comp (free_pointed_algebra_mor_restricts (colimIn (F^ω A) 0) i).
+      rw_left_comp (free_pointed_algebra_map_restricts (colimIn (F^ω A) 0) i).
       rewrite <- assoc.
       rw_right_comp (counit_FF_map_restricts (transfinite_pointed_algebra A) i).
       set (ɛ := counit_FF_cocone_arrows).
@@ -647,8 +637,8 @@ Proof. exact free_forgetful_adjunction. Defined.
 End TransfiniteConstruction.
 
 (*|
-Conversely, we can take *any* reflective
-subcategory of C and extract a well-pointed endfunctor (in fact, an idempotent monad).
+Conversely, we can take *any* reflective subcategory of C and extract a
+well-pointed endfunctor on C (in fact, an idempotent monad).
 
 This converse provides a way to produce well-pointed functors.
 |*)
@@ -667,40 +657,34 @@ Proof.
   - apply isweq_iso with (λ f : L (R d) --> e, η _ · # R f); simpl.
     + intros f.
       rewrite functor_comp, assoc.
-      eapply pathscomp0.
-        { 
-          apply cancel_postcomposition, pathsinv0.
-          apply (nat_trans_ax η).
-        }
-      simpl. rewrite <- assoc.
+      apply (transportf (λ x, x · _ = _) (nat_trans_ax η _ _ f)); simpl.
+      rewrite <- assoc.
       rewrite t2. apply id_right.
     + intros g.
       rewrite functor_comp, <- assoc.
-      eapply pathscomp0.
-        { apply cancel_precomposition. apply (nat_trans_ax ɛ). }
-      simpl. rewrite assoc, t1. apply id_left.
+      apply (transportb (λ x, _ · x = _) (nat_trans_ax ɛ _ _ g)); simpl.
+      rewrite assoc, t1. apply id_left.
 Defined.
 
 Theorem is_well_pointed_of_reflective_subcat
-  (C D : category) (adj : adjunction C D)
+  {C D : category} (adj : adjunction C D)
   : let L := left_functor adj in
     let R := right_functor adj in
     let η := adjunit adj in
       (fully_faithful R) → ∏ X : C, η ((L∙R) X) = # (L∙R) (η X).
 Proof.
   simpl. intro R_ff.
-  set (counit_is_iso := counit_is_nat_iso_from_fully_faithful C D adj R_ff).
+  assert (counit_is_iso := counit_is_nat_iso_from_fully_faithful C D adj R_ff).
   destruct adj as [[L [R [η ɛ]]] [t1 t2]].
-  red in t1, t2;
-  unfold left_functor, right_functor, adjcounit, adjunit in *; simpl in *.
-  set (R_counit_is_iso := λ d, functor_on_is_iso_is_iso R (counit_is_iso d)).
+  red in t1, t2; unfold left_functor, right_functor, adjcounit, adjunit in *; simpl in *.
+  assert (R_counit_is_iso := λ d, functor_on_is_iso_is_iso R (counit_is_iso d)).
   intros A.
   specialize (R_counit_is_iso (L A)).
   apply (post_comp_with_iso_is_inj _ _ _ R_counit_is_iso).
   rewrite t2.
   rewrite <- functor_comp, <- functor_id.
   apply maponpaths, pathsinv0.
-  apply t1.
+  exact (t1 A).
 Defined.
 
 Definition reflection_well_pointed_endofunctor 
@@ -712,8 +696,7 @@ Proof.
   set (η := adjunit adj).
   exists (make_pointed_endofunctor T η).
   intros X; simpl.
-  apply is_well_pointed_of_reflective_subcat.
-  exact R_ff.
+  exact (is_well_pointed_of_reflective_subcat adj R_ff X).
 Defined.
 
 (*
