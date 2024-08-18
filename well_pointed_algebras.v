@@ -8,10 +8,6 @@ References:
 * `Max Kelly, A unified treatment of transfinite constructions for free algebras, free monoids, colimits, associated sheaves, and so on <https://www.cambridge.org/core/journals/bulletin-of-the-australian-mathematical-society/article/unified-treatment-of-transfinite-constructions-for-free-algebras-free-monoids-colimits-associated-sheaves-and-so-on/FE2E25E4959E4D8B4DE721718E7F55EE>`_
 |*)
 
-(*|
-.. coq:: none
-|*)
-
 Require Import UniMath.Foundations.All.
 Require Import UniMath.CategoryTheory.Core.Prelude.
 Require Import UniMath.CategoryTheory.Core.Functors.
@@ -36,17 +32,15 @@ Tactic Notation "rw_left_comp" constr(e) :=
 Tactic Notation "rw_right_comp" constr(e) :=
   apply (transportb (λ x, _ · x = _) ltac:(apply e)).
 
-(*||*)
-
 
 (*|==========================
 Algebra for an endofunctor
 ==========================|*)
-Section Algebra_def. (* .none *)
+Section Algebra_def.
 
 Context {C : category}.
 
-(*| An algebra for an endofunctor consists of a structure map only |*)
+(* An algebra for an endofunctor consists of a structure map only *)
 Definition algebra (F : C ⟶ C) : UU := ∑ X : C, F X --> X.
 
 Definition make_algebra (F : C ⟶ C) (X : C) (s : F X --> X) : algebra F := tpair (λ X, F X --> X) X s.
@@ -69,7 +63,7 @@ Definition algebra_mor_commutes {F : C ⟶ C} {X Y : algebra F} (f : algebra_mor
   : algebra_map X · f = #F f · algebra_map Y
   := pr2 f.
 
-(*| Such morphisms come with identity, composition |*)
+(* Such morphisms come with identity, composition *)
 
 Definition algebra_mor_id {F : C ⟶ C} (X : algebra F) : algebra_mor X X.
 Proof.
@@ -162,7 +156,7 @@ Coercion algebra_from_pointed_algebra {C : category} (F : pointed_endofunctor C)
 
 Definition pointed_algebra_ax {C : category} {F : pointed_endofunctor C} (X : pointed_algebra F) : (point F X) · (algebra_map X) = identity X := pr2 X.
 
-(*| A monad algebra for a monad is an algebra equipped with unit and multiplication laws (cf. pointed_algebra) |*)
+(* A monad algebra for a monad is an algebra equipped with unit and multiplication laws (cf. pointed_algebra) *)
 Definition monad_algebra {C : category} (T : Monad C) : UU := ∑ X : algebra T,
   identity X = (η T X) · (algebra_map X) ×
   μ T X · algebra_map X = #T (algebra_map X) · algebra_map X.
@@ -247,21 +241,19 @@ Proof.
       apply pointed_algebra_ax.
 Defined.
 
-(*|
-There is at most one pointed algebra structure on a given X : C.
-|*)
+(* There is at most one pointed algebra structure on a given X : C. *)
 Corollary well_pointed_has_pointed_algebra_isaprop (F : well_pointed_endofunctor C)
   : ∏ A : C, isaprop (∑ a : F A --> A, (point F A) · a = identity A).
 Proof.
   intros A.
   apply invproofirrelevance; red. intros [a ar] [b br].
   apply subtypeInjectivity; simpl. { intros f. apply homset_property. }
-  set (point_X_iso := well_pointed_point_z_iso_at_algebra F (make_pointed_algebra F A a ar)).
-  apply (pre_comp_with_z_iso_is_inj point_X_iso); simpl.
+  set (point_A_iso := well_pointed_point_z_iso_at_algebra F (make_pointed_algebra F A a ar)).
+  apply (pre_comp_with_z_iso_is_inj point_A_iso); simpl.
   exact (ar @ ! br).
 Defined.
 
-(*|Given pointed algebras X, Y, any f : X ⟶ Y in C is a morphism of pointed algebras|*)
+(* Given pointed algebras X, Y, any f : X ⟶ Y in C is a morphism of pointed algebras *)
 Corollary mor_is_algebra_mor {F : well_pointed_endofunctor C}
   (X Y : pointed_algebra F) (f : C ⟦ X, Y ⟧)
   : algebra_map X · f = # F f · algebra_map Y.
@@ -286,10 +278,8 @@ Proof.
   - split; red; intros; apply idpath.
 Defined.
 
-(*|
-For a well-pointed algebra F, its category of pointed algebras can be viewed as a subcategory
-of C via the forgetful functor, because it is fully-faithful. 
-|*)
+(* For a well-pointed algebra F, its category of pointed algebras can be viewed as a subcategory
+of C via the forgetful functor, because it is fully-faithful. *)
 Definition forgetul_fully_faithful (F : well_pointed_endofunctor C) : fully_faithful (forgetful F).
 Proof.
   red. intros X Y.
@@ -299,9 +289,7 @@ Proof.
   + intros f; simpl. apply idpath. 
 Defined.
 
-(*|
-Being in the (strict) image of the forgetful functor is a proposition.
-|*)
+(* Being in the (strict) image of the forgetful functor is a proposition. *)
 Lemma well_pointed_image_forgetful_isaprop (F : well_pointed_endofunctor C)
   : ∏ A : C, isaprop (∑ X : pointed_algebra F, forgetful F X = A).
 Proof.
@@ -338,38 +326,36 @@ Section TransfiniteConstruction.
 
 Context {C : category}.
 
-(*| Assumptions of the transfinite-construction |*)
+(* Assumptions of the transfinite-construction *)
 Context (F : well_pointed_endofunctor C).
 Context (F_preserves_chain_colims : preserves_colimits_of_shape F nat_graph).
 Context (has_chain_colimits : ∏ (c : chain C), ColimCocone c).
 
-(* Let σ : functor_identity C ⟹ F := point F. *)
-
-(*| The diagram A --> FA --> FFA --> ..., where the ith morphism is σ (F^i A) |*)
+(* The diagram A --> FA --> FFA --> ..., where the ith morphism is σ (F^i A) *)
 Definition F_chain (A : C) : chain C.
 Proof.
   exists (λ n, iter_functor F n A).
   intros m n []. exact (point F (iter_functor F m A)).
 Defined.
 
-(*| F (F^n A) = F^n (F A) |*)
+(* F (F^n A) = F^n (F A) *)
 Definition iterF_commutes (A : C) (n : nat) : F (iter_functor F n A) = iter_functor F n (F A).
 Proof.
   induction n. { apply idpath. }
   simpl. rewrite IHn. apply idpath.
 Defined.
 
-(*| 
+(* 
   The chosen colimiting cocone of A -> FA -> FFA -> ...
   We refer to it's vertex as F^ω A
-  |*)
+*)
 Definition F_chain_CC (A : C) : ColimCocone (F_chain A) := has_chain_colimits _.
 
-(*|
+(*
   F preserves ℕ-filtered colimits, so applying F gives us a new colimiting
   cocone of the mapped diagram F(A) -> F(FA) -> F(FFA) -> ...
   with vertex F(F^ω A).
-|*)
+*)
 Definition mapF_F_chain_CC (A : C) : ColimCocone (mapdiagram F (F_chain A)).
 Proof.
   use make_ColimCocone.
@@ -412,18 +398,18 @@ Proof.
     apply pathsinv0, well_pointed_endofunctor_ax.
 Defined.
 
-(*| The morphism induced by the cocone above |*)
+(* The morphism induced by the cocone above *)
 Definition transfinite_structure_map (A : C) : F (colim (F^ω A)) --> colim (F^ω A)
   := colimArrow (FF^ω A) (colim (F^ω A)) (transfinite_structure_map_cocone A).
 
-(*| The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A |*)
+(* The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A *)
 Lemma transfinite_structure_map_restricts (A : C) (i : vertex nat_graph)
   : colimIn (FF^ω A) i · transfinite_structure_map A = (colimIn (F^ω A)) (S i).
 Proof.
   apply colimArrowCommutes.
 Defined.
 
-(*| The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A |*)
+(* The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A *)
 Lemma transfinite_structure_map_restricts' (A : C) (i : vertex nat_graph)
   : # F (colimIn (F^ω A) i) · transfinite_structure_map A = (colimIn (F^ω A)) (S i).
 Proof.
@@ -444,25 +430,28 @@ Proof.
   apply pathsinv0, colim_endo_is_identity.
   intro i.
   rewrite assoc.
+  (* α_A^i · σ_{F^ω A} · s = σ_{F^i A} · F (α_A^i) · s *)
   rewrite point_naturality.
   rewrite <- assoc.
+  (* ... = σ_{F^i A} · α_A^(1+i) *)
   rewrite transfinite_structure_map_restricts'.
+  (* ... = α_A^i *)
   exact (colimInCommutes (F^ω A) i (1+i) (idpath _)).
 Defined.
 
-(*|
+(*
   The primary object of construction - we will prove this is the free pointed-algebra.
-|*)
+*)
 Definition transfinite_pointed_algebra (A : C) : pointed_algebra F
   := make_pointed_algebra F
       (colim (F^ω A))
       (transfinite_structure_map A)
       (transfinite_structure_map_retraction A).
 
-(*| 
+(*
   The free functor action on morphisms, given by the canonical map between the colimits
   NOTE: this is the underlying morphism in C, not in the category of algebras
-  |*)
+*)
 Definition free_pointed_algebra_map {A B : C} (f : A --> B)
   : C ⟦ transfinite_pointed_algebra A, transfinite_pointed_algebra B ⟧.
 Proof.
@@ -551,10 +540,10 @@ Proof.
   apply id_right.
 Defined.
 
-(*| The counit has a component at the algebra X which is a morphism of algebras
+(* The counit has a component at the algebra X which is a morphism of algebras
   F^ω X --> X. This is the underlying morphism in C.
   (Be aware of the implicit coercion of X to it's underlying object in C)
-|*)
+*)
 Definition counit_FF_map (X : pointed_algebra F) : colim (F^ω X) --> X.
 Proof.
   apply colimArrow. use make_cocone.
@@ -607,7 +596,7 @@ Proof.
   apply algebra_mor_commutes.
 Defined.
 
-(*| The adjunction witnessing that the free pointed-algebra functor is indeed free |*)
+(* The adjunction witnessing that the free pointed-algebra functor is indeed free *)
 Definition free_forgetful_adjunction : adjunction C (pointed_algebra_category F).
 Proof.
   use make_adjunction.
