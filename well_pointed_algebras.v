@@ -10,14 +10,14 @@ References:
 
 Require Import UniMath.Foundations.All.
 Require Import UniMath.CategoryTheory.Core.Prelude.
-Require Import UniMath.CategoryTheory.Core.Functors.
-Require Import UniMath.CategoryTheory.Core.NaturalTransformations.
 Require Import UniMath.CategoryTheory.Equivalences.Core.
 Require Import UniMath.CategoryTheory.Adjunctions.Core.
 Require Import UniMath.CategoryTheory.Monads.Monads.
 Require Import UniMath.CategoryTheory.Limits.Graphs.Colimits.
 Require Import UniMath.CategoryTheory.Chains.Chains.
-Require Import UniMath.CategoryTheory.Subcategory.Reflective.
+Require Import UniMath.CategoryTheory.Chains.OmegaCocontFunctors.
+Require Import UniMath.CategoryTheory.FunctorCategory.
+Require Import UniMath.CategoryTheory.whiskering.
 
 Local Open Scope cat.
 
@@ -311,6 +311,70 @@ Defined.
 
 End AlgebrasWellPointed.
 
+
+(* post_whisker_unit σ F is σF, i.e. at A it is σ (G A) : G A --> F (G A)
+  This is equal to post_whisker σ F, without the complica
+ *)
+Definition post_whisker_unit {D C : category} {F : C ⟶ C} (σ : functor_identity C ⟹ F) (G : D ⟶ C) : G ⟹ G∙F.
+Proof.
+  use make_nat_trans; red.
+  + exact (λ A, σ (G A)).
+  + intros A B f. apply (nat_trans_ax σ).
+Defined.
+
+(* pre_whisker_unit *)
+Definition pre_whisker_unit {D C : category} {F : C ⟶ C} (G : C ⟶ D) (σ : functor_identity C ⟹ F) : G ⟹ F∙G.
+Proof.
+  use make_nat_trans; red.
+  + exact (λ A, # G (σ A)).
+  + intros A B f. simpl. do 2 rewrite <- functor_comp. apply maponpaths. apply (nat_trans_ax σ).
+Defined.
+
+Definition map_ColimCocone {C D : category} {g : graph} (d : diagram g C) {F : C ⟶ D}
+  (H : preserves_colimits_of_shape F g) : ColimCocone d → ColimCocone (mapdiagram F d).
+Proof.
+  intros CC.
+  use make_ColimCocone.
+  - exact (F (colim CC)).
+  - exact (mapcocone F d (colimCocone CC)).
+  - apply H. apply CC.
+Defined.
+
+Local Notation "F '^' i" := (iter_functor F i).
+
+Section IterChain.
+
+Context {C : category}.
+Context (F : pointed_endofunctor C).
+
+Definition iter_chain_mor (i : nat)
+  : F^i ⟹ F^(S i).
+Proof.
+  induction i as [|i IHi].
+  - exact (point F).
+  - exact (post_whisker IHi F).
+Defined.
+
+(* This property of the chain morphisms is definitional, but important conceptually. *)
+Definition iter_chain_mor_shift (i : nat) (A : C)
+  : iter_chain_mor (S i) A = # F (iter_chain_mor i A)
+  := idpath _.
+
+(* The diagram Id --> F --> FF --> ..., where the ith morphism is F^i σ(-) *)
+Definition iter_chain : chain [C, C].
+Proof.
+  exists (λ i, F ^ i).
+  intros i _ []. exact (iter_chain_mor i).
+Defined.
+
+Definition iter_chain_at (A : C) : chain C.
+Proof. 
+  exists (λ i, (F ^ i) A).
+  intros i _ []. exact (iter_chain_mor i A).
+Defined.
+
+End IterChain.
+
 (*|
 For F : C ⟶ C well-pointed, we have a fully-faithful inclusion of F-Alg into C.
 We will show that F-Alg is actually reflective in C by constructing its left-adjoint,
@@ -327,52 +391,37 @@ Section TransfiniteConstruction.
 Context {C : category}.
 
 (* Assumptions of the transfinite-construction *)
-Context (F : well_pointed_endofunctor C).
-Context (F_preserves_chain_colims : preserves_colimits_of_shape F nat_graph).
-Context (has_chain_colimits : ∏ (c : chain C), ColimCocone c).
-
-(* The diagram A --> FA --> FFA --> ..., where the ith morphism is σ (F^i A) *)
-Definition F_chain (A : C) : chain C.
-Proof.
-  exists (λ n, iter_functor F n A).
-  intros m n []. exact (point F (iter_functor F m A)).
-Defined.
-
-(* F (F^n A) = F^n (F A) *)
-Definition iterF_commutes (A : C) (n : nat) : F (iter_functor F n A) = iter_functor F n (F A).
-Proof.
-  induction n. { apply idpath. }
-  simpl. rewrite IHn. apply idpath.
-Defined.
+Context (chain_colimits : Chains C).
+Context (F : pointed_endofunctor C).
+Context (F_omega_cocont : is_omega_cocont F).
 
 (* 
-  The chosen colimiting cocone of A -> FA -> FFA -> ...
-  We refer to it's vertex as F^ω A
+  Well-pointed is used in (essentially) one part of the argument that the
+  free-algebra-map is a retract of the point - all other constructions
+  and theorems just treat F as a pointed endofunctor.
+  Dependency graph is:
+  F_well_pointed
+    => iter_chain_mor_is_point
+    => shift_iter_map_retraction
+    => transfinite_pointed_algebra
+   *)
+Context (F_well_pointed : well_pointed F). 
+
+(* 
+  The chosen colimiting cocone of A --> FA --> FFA --> ...
 *)
-Definition F_chain_CC (A : C) : ColimCocone (F_chain A) := has_chain_colimits _.
+Let CC : ∏ A : C, ColimCocone (iter_chain_at F A)
+  := λ A, chain_colimits _.
+Local Notation "'F^ω'" := (λ A, colim (CC A)) (at level 0).
 
 (*
   F preserves ℕ-filtered colimits, so applying F gives us a new colimiting
   cocone of the mapped diagram F(A) -> F(FA) -> F(FFA) -> ...
   with vertex F(F^ω A).
 *)
-Definition mapF_F_chain_CC (A : C) : ColimCocone (mapdiagram F (F_chain A)).
-Proof.
-  use make_ColimCocone.
-  - exact (F (colim (F_chain_CC A))).
-  - exact (mapcocone F (F_chain A) (colimCocone (F_chain_CC A))).
-  - apply F_preserves_chain_colims. apply F_chain_CC.
-Defined.
-
-(* F^ω A refers to the (assumed) colimiting cocone of
-A --> FA --> FFA --> ...
-For the colimiting object, we use colim (F^ω A). *)
-Notation "'F^ω'" := (F_chain_CC) (at level 0).
-
-(* FF^ω A refers to the (assumed) colimiting cocone of
-F(A) --> F(FA) --> F(FFA) --> ...
-For the colimiting object, we use colim (FF^ω A). *)
-Notation "'FF^ω'" := (mapF_F_chain_CC) (at level 0).
+Let F_CC : ∏ A : C, ColimCocone (mapchain F (iter_chain_at F A))
+  := λ A, map_ColimCocone _ F_omega_cocont (CC A).
+Local Notation "'FF^ω'" := (λ A, colim (F_CC A)) (at level 0).
 
 (* Note the definitional difference between F(colim (F^ω A)) and colim (FF^ω A) *)
 
@@ -388,44 +437,53 @@ Notation "'FF^ω'" := (mapF_F_chain_CC) (at level 0).
 
   Here we construct the cocone.
 |*)
-Definition transfinite_structure_map_cocone (A : C) : (cocone (mapdiagram F (F_chain A)) (colim (F^ω A))).
+
+Definition shift_iter_cocone (A : C)
+  : cocone (mapchain F (iter_chain_at F A)) (F^ω A).
 Proof.
-  use make_cocone.
-  - intros i. exact ((colimIn (F^ω A)) (S i)).
-  - simpl. intros i _ []; simpl.
-    rewrite <- (colimInCommutes (F^ω A) (S i) (S (S i)) (idpath _)); simpl.
-    apply cancel_postcomposition.
-    apply pathsinv0, well_pointed_endofunctor_ax.
+  exists (λ i, colimIn (CC A) (S i)).
+  intros i _ []; simpl. exact (colimInCommutes (CC A) (S i) _ (idpath (S (S i)))).
 Defined.
 
 (* The morphism induced by the cocone above *)
-Definition transfinite_structure_map (A : C) : F (colim (F^ω A)) --> colim (F^ω A)
-  := colimArrow (FF^ω A) (colim (F^ω A)) (transfinite_structure_map_cocone A).
+Definition shift_iter_map (A : C) : F (F^ω A) --> (F^ω A)
+  := colimArrow 
+      (map_ColimCocone (iter_chain_at F A) F_omega_cocont (CC A))
+      (F^ω A)
+      (shift_iter_cocone A).
 
 (* The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A *)
-Lemma transfinite_structure_map_restricts (A : C) (i : vertex nat_graph)
-  : colimIn (FF^ω A) i · transfinite_structure_map A = (colimIn (F^ω A)) (S i).
+Lemma shift_iter_map_restricts (A : C) (i : nat)
+  : colimIn (F_CC A) i · shift_iter_map A = (colimIn (CC A)) (S i).
 Proof.
   apply colimArrowCommutes.
 Defined.
 
 (* The structure map restricted to F(F^i A) is the inclusion F^(1+i) A --> F^ω A *)
-Lemma transfinite_structure_map_restricts' (A : C) (i : vertex nat_graph)
-  : # F (colimIn (F^ω A) i) · transfinite_structure_map A = (colimIn (F^ω A)) (S i).
+Lemma shift_iter_map_restricts' (A : C) (i : nat)
+  : # F (colimIn (CC A) i) · shift_iter_map A = (colimIn (CC A)) (S i).
 Proof.
-  change (# F (colimIn (F^ω A) i)) with (colimIn (FF^ω A) i).
-  apply transfinite_structure_map_restricts.
+  change (# F (colimIn (CC A) i)) with (colimIn (F_CC A) i).
+  apply shift_iter_map_restricts.
+Defined.
+
+Lemma iter_chain_mor_is_point (i : nat) (A : C) : iter_chain_mor F i A = point F ((F ^ i) A).
+Proof.
+  apply pathsinv0.
+  induction i.
+  - exact (idpath _).
+  - exact (F_well_pointed ((F ^ i) A) @ maponpaths (#F) IHi).
 Defined.
 
 (*|
   The structure map restricts to the identity via σ (F^ω A).
   Not surprising, since the structure map is a colimit of components of σ
 |*)
-Lemma transfinite_structure_map_retraction (A : C)
-  : point F (colim (F^ω A)) · (transfinite_structure_map A)
-    = identity (colim (F^ω A)).
+Lemma shift_iter_map_retraction (A : C)
+  : point F (F^ω A) · (shift_iter_map A)
+    = identity (F^ω A).
 Proof.
-  set (s := transfinite_structure_map A).
+  set (s := shift_iter_map A).
 
   apply pathsinv0, colim_endo_is_identity.
   intro i.
@@ -434,9 +492,10 @@ Proof.
   rewrite point_naturality.
   rewrite <- assoc.
   (* ... = σ_{F^i A} · α_A^(1+i) *)
-  rewrite transfinite_structure_map_restricts'.
+  rewrite shift_iter_map_restricts'.
+  simpl. rewrite <- iter_chain_mor_is_point. (* well-pointedness used here! *)
   (* ... = α_A^i *)
-  exact (colimInCommutes (F^ω A) i (1+i) (idpath _)).
+  apply (colimInCommutes (CC A) i (1+i) (idpath _)).
 Defined.
 
 (*
@@ -444,9 +503,9 @@ Defined.
 *)
 Definition transfinite_pointed_algebra (A : C) : pointed_algebra F
   := make_pointed_algebra F
-      (colim (F^ω A))
-      (transfinite_structure_map A)
-      (transfinite_structure_map_retraction A).
+      (F^ω A)
+      (shift_iter_map A)
+      (shift_iter_map_retraction A).
 
 (*
   The free functor action on morphisms, given by the canonical map between the colimits
@@ -455,13 +514,16 @@ Definition transfinite_pointed_algebra (A : C) : pointed_algebra F
 Definition free_pointed_algebra_map {A B : C} (f : A --> B)
   : C ⟦ transfinite_pointed_algebra A, transfinite_pointed_algebra B ⟧.
 Proof.
-  apply colimOfArrows with (λ i, # (iter_functor F i) f).
-  intros i _ []; simpl; apply pathsinv0; apply point_naturality.
+  apply colimOfArrows with (λ i, # (F ^ i) f).
+  intros i _ []; simpl.
+  induction i.
+  + simpl. apply pathsinv0, point_naturality.
+  + simpl. do 2 rewrite <- functor_comp. apply maponpaths. exact IHi.
 Defined.
 
 Lemma free_pointed_algebra_map_restricts {A B : C} (f : A --> B) (i : nat)
-  : colimIn (F^ω A) i · free_pointed_algebra_map f
-    = # (iter_functor F i) f · colimIn (F^ω B) i.
+  : colimIn (CC A) i · free_pointed_algebra_map f
+    = # (F ^ i) f · colimIn (CC B) i.
 Proof.
   apply colimArrowCommutes.
 Defined.
@@ -475,21 +537,20 @@ Definition free_pointed_algebra_data : functor_data C (pointed_algebra_category 
 Proof.
   exists transfinite_pointed_algebra.
   intros A B f.
-  (* set (f' := free_pointed_algebra_map f). *)
   exists (free_pointed_algebra_map f).
 
-  apply (colim_mor_eq (FF^ω A)); simpl.
+  apply (colim_mor_eq (F_CC A)); simpl.
   intros i.
   rewrite assoc, assoc.
-  rw_left_comp transfinite_structure_map_restricts.
+  rw_left_comp shift_iter_map_restricts.
   refine (free_pointed_algebra_map_restricts f (S i) @ _).
-  change (colimIn (FF^ω A) i) with (# F (colimIn (F^ω A) i)).
+  change (colimIn (F_CC A) i) with (# F (colimIn (CC A) i)).
   rewrite <- functor_comp.
   apply (transportb (λ x, _ = # F x · _) (free_pointed_algebra_map_restricts f i)).
   simpl.
-  rewrite functor_comp. rewrite <- assoc.
+  rewrite functor_comp, <- assoc.
   apply cancel_precomposition.
-  apply pathsinv0, transfinite_structure_map_restricts.
+  apply pathsinv0, shift_iter_map_restricts.
 Defined.
 
 (* The free functor *)
@@ -497,17 +558,19 @@ Definition free_pointed_algebra : C ⟶ pointed_algebra_category F.
 Proof.
   apply (make_functor free_pointed_algebra_data).
   split.
-  + intros A. apply algebra_mor_eq. simpl.
+  - intros A. apply algebra_mor_eq.
     apply pathsinv0, colim_endo_is_identity. intros i.
     refine (free_pointed_algebra_map_restricts _ _ @ _).
     rewrite functor_id.
     apply id_left.
-  + red. intros X Y Z f g. apply algebra_mor_eq; simpl.
-    refine (_ @ ! precompWithColimOfArrows _ _ _ _ _ _ _ _).
+  - red. intros X Y Z f g. apply pathsinv0, algebra_mor_eq; simpl.
     apply colimArrowUnique; simpl. intros i.
-    refine (free_pointed_algebra_map_restricts (f · g) i @ _).
+    rewrite assoc.
+    rw_left_comp (free_pointed_algebra_map_restricts f i).
+    rewrite <- assoc.
+    rw_right_comp (free_pointed_algebra_map_restricts g i).
     rewrite assoc. apply cancel_postcomposition.
-    apply functor_comp.
+    apply pathsinv0, functor_comp.
 Defined.
 
 (*| We now prove that this is indeed the free functor, by constructing an adjunction |*)
@@ -515,36 +578,36 @@ Defined.
 Definition unit_FF_adjunction : functor_identity C ⟹ free_pointed_algebra ∙ forgetful F.
 Proof.
   use make_nat_trans; red; simpl.
-  - exact (λ A, colimIn (F^ω A) 0).
+  - exact (λ A, colimIn (CC A) 0).
   - intros A B f; simpl.
-    refine (_ @ ! free_pointed_algebra_map_restricts f 0).
-    apply idpath.
+    apply pathsinv0, (free_pointed_algebra_map_restricts f 0).
 Defined.
 
-Definition counit_FF_cocone_arrows (X : pointed_algebra F) : ∏ i : nat, C ⟦ iter_functor F i X, X ⟧.
+Definition counit_FF_cocone_arrows (X : pointed_algebra F) : ∏ i : nat, C ⟦ (F ^ i) X, X ⟧.
 Proof.
-  induction i as [|i f].
-  - exact (identity X).
-  - exact (# F f · algebra_map X).
+  induction i as [|i IH].
+  - exact (identity X). (* Forced by triangle identities *)
+  - exact (# F IH · algebra_map X). (* Necessary to make ɛ an morphism of algebras *)
 Defined.
 
 Definition counit_FF_forms_cocone (X : pointed_algebra F)
-  : forms_cocone (F_chain X) (counit_FF_cocone_arrows X).
+  : forms_cocone (iter_chain_at F X) (counit_FF_cocone_arrows X).
 Proof.
   red; intros i _ []; simpl.
-  set (ɛ := counit_FF_cocone_arrows X).
+  set (ɛ := counit_FF_cocone_arrows).
   rewrite assoc.
-  rw_left_comp (! point_naturality F (ɛ i)).
-  rewrite <- assoc.
-  rw_right_comp (pointed_algebra_ax X).
-  apply id_right.
+  (* This could be done using iter_chain_mor_is_point, but it's not necessary! *)
+  induction i.
+  - simpl. rewrite functor_id, id_right. apply pointed_algebra_ax.
+  - simpl. rewrite <- functor_comp, assoc.
+    apply (maponpaths (λ x, # F x · _) IHi).
 Defined.
 
 (* The counit has a component at the algebra X which is a morphism of algebras
   F^ω X --> X. This is the underlying morphism in C.
   (Be aware of the implicit coercion of X to it's underlying object in C)
 *)
-Definition counit_FF_map (X : pointed_algebra F) : colim (F^ω X) --> X.
+Definition counit_FF_map (X : pointed_algebra F) : colim (CC X) --> X.
 Proof.
   apply colimArrow. use make_cocone.
   + apply counit_FF_cocone_arrows.
@@ -552,7 +615,7 @@ Proof.
 Defined.
 
 Definition counit_FF_map_restricts (X : pointed_algebra F) (i : nat)
-  : colimIn (F^ω X) i · counit_FF_map X = counit_FF_cocone_arrows X i.
+  : colimIn (CC X) i · counit_FF_map X = counit_FF_cocone_arrows X i.
 Proof.
   apply colimArrowCommutes.
 Defined.
@@ -560,13 +623,13 @@ Defined.
 Definition counit_FF_mor (X : pointed_algebra F) : free_pointed_algebra X --> X.
 Proof.
   exists (counit_FF_map X).
-  apply (colim_mor_eq (FF^ω X)).
+  apply (colim_mor_eq (F_CC X)).
   intros i.
   rewrite assoc, assoc.
-  rewrite transfinite_structure_map_restricts.
+  rewrite shift_iter_map_restricts.
   refine (counit_FF_map_restricts X (S i) @ _); simpl.
   apply cancel_postcomposition.
-  change (colimIn (FF^ω X) i) with (# F (colimIn (F^ω X) i)).
+  change (colimIn (F_CC X) i) with (# F (colimIn (CC X) i)).
   rewrite <- functor_comp.
   apply maponpaths, pathsinv0.
   apply counit_FF_map_restricts.
@@ -577,23 +640,21 @@ Proof.
   use make_nat_trans. { exact counit_FF_mor. }
 
   intros X Y f. apply algebra_mor_eq; simpl in *.
-  refine (precompWithColimOfArrows _ _ _ _ _ _ _ _ @ _).
-  apply colim_mor_eq; intros i; simpl.
-  refine (colimArrowCommutes (F^ω X) _ _ _ @ _); simpl.
-  
-  apply pathsinv0.
-  rewrite assoc.
-  rw_left_comp counit_FF_map_restricts.
+  apply colim_mor_eq; intros i. do 2 rewrite assoc.
+  rw_left_comp (free_pointed_algebra_map_restricts f i).
+  rewrite <- assoc.
+  rw_right_comp (counit_FF_map_restricts Y i).
+  rewrite (counit_FF_map_restricts X i).
   set (ɛ := counit_FF_cocone_arrows).
 
-  induction i; simpl. { rewrite id_left, id_right. apply idpath. }
+  induction i; simpl. { rewrite id_left. apply id_right. }
   rewrite assoc. rewrite <- functor_comp.
-  rewrite <- IHi.
+  apply (transportb (λ x, # F x · _ = _) IHi).
   rewrite <- assoc.
   rewrite functor_comp.
   rewrite <- (assoc _ _ (algebra_map Y)).
   apply cancel_precomposition.
-  apply algebra_mor_commutes.
+  apply pathsinv0, algebra_mor_commutes.
 Defined.
 
 (* The adjunction witnessing that the free pointed-algebra functor is indeed free *)
@@ -605,19 +666,19 @@ Proof.
     + exact (forgetful F).
     + exact unit_FF_adjunction.
     + exact counit_FF_adjunction.
-  - split.
-    + red. intro A. apply algebra_mor_eq, pathsinv0; simpl.
+  - split; red.
+    + intro A. apply algebra_mor_eq, pathsinv0; simpl.
       apply colim_endo_is_identity. intros i.
       rewrite assoc.
-      rw_left_comp (free_pointed_algebra_map_restricts (colimIn (F^ω A) 0) i).
+      rw_left_comp (free_pointed_algebra_map_restricts (colimIn (CC A) 0) i).
       rewrite <- assoc.
       rw_right_comp (counit_FF_map_restricts (transfinite_pointed_algebra A) i).
       set (ɛ := counit_FF_cocone_arrows).
       induction i; simpl. { apply id_right. }
       rewrite assoc, <- functor_comp.
       apply (transportb (λ x, # F x · _ = _) IHi).
-      apply transfinite_structure_map_restricts.
-    + red. intro X; simpl. apply (counit_FF_map_restricts X 0).
+      apply shift_iter_map_restricts.
+    + intro X. simpl. apply (counit_FF_map_restricts X 0).
 Defined.
 
 Corollary are_adjoints_FF : are_adjoints free_pointed_algebra (forgetful F).
@@ -668,12 +729,13 @@ Proof.
   red in t1, t2; unfold left_functor, right_functor, adjcounit, adjunit in *; simpl in *.
   assert (R_counit_is_iso := λ d, functor_on_is_iso_is_iso R (counit_is_iso d)).
   intros A.
+  (* The triangle identities imply that RLη and ηRL are sections of RɛLA, which is iso *)
   specialize (R_counit_is_iso (L A)).
+  specialize (t2 (L A)).
+  pose proof (t1' := maponpaths (#R) (t1 A)); clear t1; rename t1' into t1.
+  rewrite functor_comp, functor_id in t1.
   apply (post_comp_with_iso_is_inj _ _ _ R_counit_is_iso).
-  rewrite t2.
-  rewrite <- functor_comp, <- functor_id.
-  apply maponpaths, pathsinv0.
-  exact (t1 A).
+  exact (t2 @ ! t1).
 Defined.
 
 Definition reflection_well_pointed_endofunctor 
@@ -689,7 +751,6 @@ Proof.
 Defined.
 
 (*
-Something could be said about idempotent monads, but extracting the monad
-from an adjunction exists only in UniMath.Bicategories, but we are using
-adjunctions in the sense of UniMath.CategoryTheory.Adjunctions.Core
+Something could be said about idempotent monads, but I'm not sure how to
+go about this (seems to involve UniMath.Bicategories).
 *)
