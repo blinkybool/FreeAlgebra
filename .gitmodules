@@ -1,0 +1,9 @@
+[submodule "presentation/reveal.js"]
+	path = presentation/reveal.js
+	url = https://github.com/hakimel/reveal.js.git
+[submodule "presentation/reveal.js-plugins"]
+	path = presentation/reveal.js-plugins
+	url = https://github.com/rajgoel/reveal.js-plugins.git
+[submodule "presentation/alectryon"]
+	path = presentation/alectryon
+	url = https://github.com/cpitclaudel/alectryon.git

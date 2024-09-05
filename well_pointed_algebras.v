@@ -1,4 +1,4 @@
-(*|
+(*
 The transfinite construction of a free-algebra (from a well-pointed endofunctor
 in a category with ℕ-filtered colimits)
 
@@ -6,7 +6,7 @@ References:
 
 * `nLab: transfinite construction of free algebras <https://ncatlab.org/nlab/show/transfinite+construction+of+free+algebras>`_
 * `Max Kelly, A unified treatment of transfinite constructions for free algebras, free monoids, colimits, associated sheaves, and so on <https://www.cambridge.org/core/journals/bulletin-of-the-australian-mathematical-society/article/unified-treatment-of-transfinite-constructions-for-free-algebras-free-monoids-colimits-associated-sheaves-and-so-on/FE2E25E4959E4D8B4DE721718E7F55EE>`_
-|*)
+*)
 
 Require Import UniMath.Foundations.All.
 Require Import UniMath.CategoryTheory.Core.Prelude.
@@ -33,9 +33,9 @@ Tactic Notation "rw_right_comp" constr(e) :=
   apply (transportb (λ x, _ · x = _) ltac:(apply e)).
 
 
-(*|==========================
+(* ==========================
 Algebra for an endofunctor
-==========================|*)
+========================== *)
 Section Algebra_def.
 
 Context {C : category}.
@@ -127,10 +127,10 @@ Proof.
   apply (nat_trans_ax (point F)).
 Defined.
 
-(*| 
+(*
   A well-pointed functor satisfies Fσ = σF, i.e. for every c : C, the two
   ways of constructing a morphism F c --> F (F c) coincide.
-|*)
+*)
 Definition well_pointed {C : category} (F : pointed_endofunctor C) :=
   let σ := point F
   in ∏ c : C,σ (F c) =  #F (σ c).
@@ -141,9 +141,9 @@ Definition well_pointed_endofunctor (C : category) : UU := ∑ F : pointed_endof
 
 Definition well_pointed_endofunctor_ax {C : category} (F : well_pointed_endofunctor C) : well_pointed F := pr2 F.
 
-(*| A pointed algebra for a pointed endofunctor is an algebra (a : F X --> X)
+(* A pointed algebra for a pointed endofunctor is an algebra (a : F X --> X)
   for the endofunctor which is a retraction of the point map (σ_X · a = id_X)
-|*)
+*)
 Definition pointed_algebra {C : category} (F : pointed_endofunctor C) : UU :=
   let σ := point F
   in ∑ X : algebra F, (σ X) · (algebra_map X) = identity X.
@@ -199,7 +199,7 @@ Definition algebraically_free {C : category} (F : C ⟶ C) (T : Monad C)
   : UU
   := equivalence_of_cats (monad_algebra_category T) (algebra_category F).
 
-(*|
+(*
 ======================================
 Algebras for well-pointed endofunctors
 ======================================
@@ -213,7 +213,7 @@ In fact, this makes the category of pointed algebras for F into a reflective
 subcategory of C. Moreover, any reflective subcategory induces a monad, for
 which the underlying pointed endofunctor is well-pointed, giving us concrete
 examples of well-pointed endofunctors.
-|*)
+*)
 
 Section AlgebrasWellPointed.
 
@@ -375,7 +375,7 @@ Defined.
 
 End IterChain.
 
-(*|
+(*
 For F : C ⟶ C well-pointed, we have a fully-faithful inclusion of F-Alg into C.
 We will show that F-Alg is actually reflective in C by constructing its left-adjoint,
 the free pointed-algebra functor.
@@ -384,7 +384,7 @@ We handle only the Κ=ℕ case of the transfinite-construction, where C is assum
 have Κ-filtered colimits that F preserves.
 This is equivalent to C having colimits of ℕ-indexed diagrams
 of the form X_0 --> X_1 --> X_2 --> ..., and F preserving them.
-|*)
+*)
 
 Section TransfiniteConstruction.
 
@@ -425,7 +425,7 @@ Local Notation "'FF^ω'" := (λ A, colim (F_CC A)) (at level 0).
 
 (* Note the definitional difference between F(colim (F^ω A)) and colim (FF^ω A) *)
 
-(*|
+(*
   We want a structure map of the form F(F^ω A) --> F^ω A.
   Since F(F^ω A) is a colimit, it suffices to construct a cocone
     F(A) --> F^ω A
@@ -436,7 +436,7 @@ Local Notation "'FF^ω'" := (λ A, colim (F_CC A)) (at level 0).
   since F(F^i(A)) = F^(1+i) A definitionally.
 
   Here we construct the cocone.
-|*)
+*)
 
 Definition shift_iter_cocone (A : C)
   : cocone (mapchain F (iter_chain_at F A)) (F^ω A).
@@ -475,10 +475,10 @@ Proof.
   - exact (F_well_pointed ((F ^ i) A) @ maponpaths (#F) IHi).
 Defined.
 
-(*|
+(*
   The structure map restricts to the identity via σ (F^ω A).
   Not surprising, since the structure map is a colimit of components of σ
-|*)
+*)
 Lemma shift_iter_map_retraction (A : C)
   : point F (F^ω A) · (shift_iter_map A)
     = identity (F^ω A).
@@ -573,7 +573,7 @@ Proof.
     apply pathsinv0, functor_comp.
 Defined.
 
-(*| We now prove that this is indeed the free functor, by constructing an adjunction |*)
+(* We now prove that this is indeed the free functor, by constructing an adjunction *)
 
 Definition unit_FF_adjunction : functor_identity C ⟹ free_pointed_algebra ∙ forgetful F.
 Proof.
@@ -686,12 +686,12 @@ Proof. exact free_forgetful_adjunction. Defined.
 
 End TransfiniteConstruction.
 
-(*|
+(*
 Conversely, we can take *any* reflective subcategory of C and extract a
 well-pointed endfunctor on C (in fact, an idempotent monad).
 
 This converse provides a way to produce well-pointed functors.
-|*)
+*)
 
 Lemma counit_is_nat_iso_from_fully_faithful (C D : category) (adj : adjunction C D)
   : fully_faithful (right_functor adj) → is_nat_iso (adjcounit adj).
