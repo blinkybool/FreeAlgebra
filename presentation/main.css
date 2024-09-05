@@ -1,0 +1,13 @@
+:root {
+  --r-main-font-size: 20px;
+}
+
+.two-column {
+  display: flex;
+  justify-content: space-between;
+}
+.column {
+  flex: 0 0 48%;
+}
+
+p { text-align: left; }
