@@ -8,3 +8,17 @@ A (UniMath) formalization in Coq of the transfinite construction of the free alg
 
 ## Limitations
 - We consider only the case \Kappa=ℕ wherever cardinality is relevant. TODO: explain consequences of this.
+
+## Build presentation
+
+```bash
+# Pull the submodules (reveal.js for slides and alectryon to render coq to interactive html)
+git submodule update --init --recursive
+# install fastHTML (inside a virtual env if you like)
+pip install python-fasthtml
+# Run the fastHMTL server
+cd presentation
+python app.py
+# Open it in your browser
+open http://localhost:5001
+```
